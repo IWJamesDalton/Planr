@@ -15,8 +15,7 @@ class Api {
         'X-ZUMO-AUTH': this.authToken
       }
     }
-    const dateString = `${date.getUTCFullYear()}${date.getUTCMonth() +
-      1}${date.getUTCDate()}`
+    const dateString = date.toISOString()
     return axios
       .get(`${this.baseUrl}/api/day/date?date=${dateString}`, config)
       .then(response => {

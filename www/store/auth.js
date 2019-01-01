@@ -20,6 +20,9 @@ export const mutations = {
     state.token = token
   },
   setLoggedIn(state, loggedIn) {
+    if (!loggedIn) {
+      sessionStorage.removeItem('authToken')
+    }
     state.loggedIn = loggedIn
   },
   setUsername(state, username) {

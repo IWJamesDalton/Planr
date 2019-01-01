@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Documents;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using Microsoft.Extensions.Logging;
@@ -28,51 +29,53 @@ namespace Planr.Tasks
             [CosmosDB(
                 databaseName: "tasks",
                 collectionName: "Collection1",
-                ConnectionStringSetting = "COSMOSDB_CONNECTION")] DocumentClient client,       
+                ConnectionStringSetting = "COSMOSDB_CONNECTION")] DocumentClient client,
             ILogger log)
         {
             log.LogInformation("C# HTTP trigger processing add day");
             if (principal != null)
             {
-            string json = req.ReadAsStringAsync().Result;
-            var taskJson = JsonConvert.DeserializeObject<Day>(json);
-              var claims = principal.Claims;
-                 log.LogInformation($"name: {principal.Identity.Name}");               
-                foreach(var innerClaim in claims){
-                    log.LogInformation($"Claim: {innerClaim.Type}, Value: {innerClaim.Value}");   
+                string json = req.ReadAsStringAsync().Result;
+                var taskJson = JsonConvert.DeserializeObject<Day>(json);
+                var claims = principal.Claims;
+                foreach (var innerClaim in claims)
+                {
                     if (innerClaim.Type == ClaimTypes.NameIdentifier && innerClaim.Value != null)
                     {
-                            log.LogInformation($"User ID: {innerClaim.Value}");   
-                            taskJson.UserId = innerClaim.Value;
+                        taskJson.UserId = innerClaim.Value;
                     }
                 }
-                if(taskJson.UserId.Length == 0){
+                if (taskJson.UserId.Length == 0)
+                {
                     day = null;
                     return new BadRequestResult();
                 }
-            taskJson.Date = taskJson.Date.AddHours(-taskJson.Date.Hour).AddMinutes(-taskJson.Date.Minute).AddSeconds(-taskJson.Date.Second);
-            var option = new FeedOptions { EnableCrossPartitionQuery = true };
-            Uri collectionUri = UriFactory.CreateDocumentCollectionUri("tasks", "Collection1");
-            var queryString = $"SELECT * FROM Day WHERE Day.userId = \"{taskJson.UserId}\" AND Day.date = \"{taskJson.Date.ToString("s")}Z\"";
-            IQueryable<Day> query = client.CreateDocumentQuery<Day>(collectionUri, queryString, option);
-            List<Day> days = new List<Day>();
-            foreach (Day result in query)
-            {
-                result.Tasks = result.Tasks.OrderBy(c => c.Priority).ToList();
-                days.Add(result);
+                taskJson.Date = taskJson.Date.AddHours(-taskJson.Date.Hour).AddMinutes(-taskJson.Date.Minute).AddSeconds(-taskJson.Date.Second);
+                var option = new FeedOptions { EnableCrossPartitionQuery = true };
+                Uri collectionUri = UriFactory.CreateDocumentCollectionUri("tasks", "Collection1");
+                var queryString = $"SELECT * FROM Day WHERE Day.userId = \"{taskJson.UserId}\" AND Day.date = \"{taskJson.Date.ToString("s")}Z\"";
+
+                foreach (Document document in client.CreateDocumentQuery(
+            collectionUri,
+            queryString,
+            option))
+                {
+                    log.LogInformation($"Self Link: {document.SelfLink}");
+                    Day dayDocument = (Day)(dynamic)document;
+                    RequestOptions options = new RequestOptions {
+                        PartitionKey = new PartitionKey(dayDocument.ProductivityScore)
+                    };
+                    var result = client.DeleteDocumentAsync(document.SelfLink, options).Result;
+                }
+
+                day = taskJson;
+                return new OkResult();
             }
-            if(days.Count > 0){
-                taskJson.Id = days.First().Id;
-            }
-            
-            day = taskJson;
-            return new OkResult();
-        }
             else
             {
                 day = null;
                 return new UnauthorizedResult();
             }
+        }
     }
-}
 }

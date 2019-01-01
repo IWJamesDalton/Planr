@@ -2,7 +2,7 @@ export default function(day) {
   return [
     {
       date: day,
-      notes: 'New notes',
+      notes: '',
       productivityScore: 0,
       tasks: [
         {

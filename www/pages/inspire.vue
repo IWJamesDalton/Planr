@@ -3,8 +3,7 @@
     <v-flex 
       v-if="days" 
       xs12 
-      sm10 
-      offset-sm3>
+      sm10>
       <v-date-picker
         v-model="dateString"
         full-width
@@ -15,7 +14,7 @@
         v-for="(day, index) in days" 
         :key="index">
         <v-toolbar 
-          color="cyan" 
+          color="cyan"
           dark>
           <v-toolbar-side-icon />
 
@@ -27,59 +26,76 @@
         </v-toolbar>
 
         <v-list two-line>
-          <template v-for="(task, index) in day.tasks">
-            <v-subheader 
-              v-if="index == 0" 
-              :key="index">
-              Most Important Task Of The Day
-            </v-subheader>
+          <template v-for="(task, index) in day.tasks" >
+            <div :key="index">
+              <v-subheader 
+                v-if="index == 0">
+                Most Important Task Of The Day
+              </v-subheader>
 
-            <v-subheader 
-              v-else-if="index == 1" 
-              :key="index">
-              Secondary Tasks of Importance
-            </v-subheader>
+              <v-subheader 
+                v-else-if="index == 1">
+                Secondary Tasks of Importance
+              </v-subheader>
 
-            <v-subheader 
-              v-else-if="index == 3" 
-              :key="index">
-              Additional Tasks
-            </v-subheader>
+              <v-subheader 
+                v-else-if="index == 3">
+                Additional Tasks
+              </v-subheader>
 
-            <v-divider 
-              v-if="index > 0" 
-              :inset="true" 
-              :key="index" />
+              <v-divider 
+                v-if="index > 0" 
+                :inset="true"/>
 
-            <v-list-tile :key="task.name">
-              <v-layout>
-                <v-flex 
-                  xs12 
-                  sm10>
-                  <v-text-field 
-                    v-model="task.name" 
-                    label="Task"
-                  />
-                </v-flex>
-                <v-flex 
-                  xs12 
-                  sm2 
-                  d-flex>
-                  <v-select
-                    v-model="task.pomodoro"
-                    :items="priorities"
-                    label="Pomodoro"
-                  />
-                </v-flex>
-              </v-layout>
-            </v-list-tile>
+              <v-list-tile>
+                <v-layout>
+                  <v-flex 
+                    xs12 
+                    sm10>
+                    <v-text-field 
+                      v-model="task.name" 
+                      label="Task"/>
+                  </v-flex>
+                  <v-flex 
+                    xs12 
+                    sm2 
+                    d-flex>
+                    <v-select
+                      v-model="task.pomodoro"
+                      :items="priorities"
+                      label="Pomodoro"
+                    />
+                  </v-flex>
+
+                </v-layout>
+              </v-list-tile>
+
+            </div>
           </template>
         </v-list>
+        <v-flex 
+          xs12 
+          px-3>
+          <v-textarea
+            v-model="day.notes"
+            label="Notes"
+          />
+          <v-subheader px-0>Productivity Score</v-subheader>
+          <v-slider
+            v-model="day.productivityScore"
+            :max="10"
+            :min="0"
+            color="cyan" 
+            thumb-label="always"
+            step="1"
+            ticks
+          />
+        </v-flex>
         <v-btn 
           color="success" 
+          px-3
           @click="update">Update</v-btn>
-      </v-card>
-    </v-flex>
+    </v-card></v-flex>
   </v-layout>
 </template>
 <script>
@@ -121,22 +137,12 @@ export default {
     return data
   },
   computed: {
-    pickerDate() {
-      get: return this.date.toISOString().substr(0, 10)
-      // setter
-      set: newValue => {
-        console.log(newValue)
-      }
-    },
-    backendEnabled() {
-      return !!this.apiBaseUrl
-    },
     loading() {
       return !this.initialized || this.fileUploading
     },
     loggedIn() {
       if (this.auth) {
-        return this.auth.enabled && this.auth.token
+        return this.auth.token
       } else {
         console.log('Auth undefined in index')
         return false
@@ -156,7 +162,12 @@ export default {
           }
           this.initialized = true
         })
-        .catch(() => {
+        .catch(err => {
+          if (err.request && err.request.status === 401) {
+            this.$store.commit('auth/setLoggedIn', false)
+            router.push('/')
+          }
+          console.log(err)
           this.days = staticDay(date)
           this.initialized = true
         })
@@ -173,14 +184,19 @@ export default {
           }
           this.initialized = true
         })
-        .catch(() => {
+        .catch(err => {
+          if (err.request && err.request.status === 401) {
+            this.$store.commit('auth/setLoggedIn', false)
+            router.push('/')
+          }
+          console.log(err)
           this.days = staticDay(this.date)
           this.initialized = true
         })
     }
   },
   mounted() {
-    if ((this.backendEnabled && !this.auth.enabled) || this.loggedIn) {
+    if (!this.auth.enabled || this.loggedIn) {
       this.api = new Api(
         this.apiBaseUrl,
         this.blobBaseUrl,
@@ -197,7 +213,12 @@ export default {
           }
           this.initialized = true
         })
-        .catch(() => {
+        .catch(err => {
+          if (err.request && err.request.status === 401) {
+            this.$store.commit('auth/setLoggedIn', false)
+            router.push('/')
+          }
+          console.log(err)
           this.days = staticDay(this.date)
           this.initialized = true
         })
@@ -213,31 +234,17 @@ export default {
     }
   },
   methods: {
-    onFileUploading() {
-      this.loaderText = ''
-      this.uploadEnabled = false
-      this.fileUploading = true
-    },
-    onFileUploadCompleted() {
-      return this.api
-        .getImages()
-        .then(images => {
-          this.fileUploading = false
-        })
-        .catch(() => {
-          this.fileUploading = false
-        })
-    },
-    onFileUploadProgress(progressText) {
-      this.loaderText = progressText
-    },
     update() {
       return this.api
         .addDay(this.days[0])
         .then(data => {
           console.log('200')
         })
-        .catch(() => {
+        .catch(err => {
+          if (err.request && err.request.status === 401) {
+            this.$store.commit('auth/setLoggedIn', false)
+            router.push('/')
+          }
           console.log('Error')
         })
     }

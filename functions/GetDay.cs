@@ -47,7 +47,7 @@ namespace Planr.Tasks
                 return new BadRequestResult();
             }
             
-            var queryDate = DateTime.ParseExact(req.Query["date"], "yyyyMMdd", new CultureInfo("en-GB"));
+            var queryDate = DateTime.Parse(req.Query["date"], new CultureInfo("en-GB"));
             queryDate = queryDate.AddHours(-queryDate.Hour).AddMinutes(-queryDate.Minute).AddSeconds(-queryDate.Second);
             var option = new FeedOptions { EnableCrossPartitionQuery = true };
             Uri collectionUri = UriFactory.CreateDocumentCollectionUri("tasks", "Collection1");
