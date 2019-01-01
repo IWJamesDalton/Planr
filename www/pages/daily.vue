@@ -13,18 +13,6 @@
       <v-card 
         v-for="(day, index) in days" 
         :key="index">
-        <v-toolbar 
-          color="cyan"
-          dark>
-          <v-toolbar-side-icon />
-
-          <v-toolbar-title>Day</v-toolbar-title>
-
-          <v-spacer />
-
-          <v-btn icon> <v-icon>search</v-icon> </v-btn>
-        </v-toolbar>
-
         <v-list two-line>
           <template v-for="(task, index) in day.tasks" >
             <div :key="index">
@@ -32,21 +20,17 @@
                 v-if="index == 0">
                 Most Important Task Of The Day
               </v-subheader>
-
               <v-subheader 
                 v-else-if="index == 1">
                 Secondary Tasks of Importance
               </v-subheader>
-
               <v-subheader 
                 v-else-if="index == 3">
                 Additional Tasks
               </v-subheader>
-
               <v-divider 
                 v-if="index > 0" 
                 :inset="true"/>
-
               <v-list-tile>
                 <v-layout>
                   <v-flex 
@@ -66,10 +50,8 @@
                       label="Pomodoro"
                     />
                   </v-flex>
-
                 </v-layout>
               </v-list-tile>
-
             </div>
           </template>
         </v-list>
@@ -92,10 +74,26 @@
           />
         </v-flex>
         <v-btn 
-          color="success" 
+          :disabled="saving"
+          color="success"
           px-3
           @click="update">Update</v-btn>
     </v-card></v-flex>
+    <v-snackbar
+      v-model="snackbar"
+      :right="true"
+      :timeout="5000"
+      :top="true"
+    >
+      {{ snackText }}
+      <v-btn
+        color="pink"
+        flat
+        @click="snackbar = false"
+      >
+        Close
+      </v-btn>
+    </v-snackbar>
   </v-layout>
 </template>
 <script>
@@ -107,8 +105,11 @@ export default {
     const data = {
       days: null,
       initialized: false,
+      saving: false,
+      snackbar: false,
       date: new Date(),
       dateString: '',
+      snackText: '',
       auth: {
         enabled: false
       },
@@ -116,11 +117,7 @@ export default {
       apiBaseUrl: '',
       blobBaseUrl: '',
       functionKey: '',
-      api: {},
-      uploadEnabled: false,
-      fileUploading: false,
-      loaderText: 'Loading...',
-      userData: 'Test'
+      api: {}
     }
     if (process.browser) {
       data.auth = {
@@ -138,7 +135,7 @@ export default {
   },
   computed: {
     loading() {
-      return !this.initialized || this.fileUploading
+      return !this.initialized
     },
     loggedIn() {
       if (this.auth) {
@@ -152,6 +149,7 @@ export default {
   watch: {
     dateString(dateString) {
       const date = new Date(dateString)
+      this.initialized = false
       this.api
         .getDay(date)
         .then(day => {
@@ -165,7 +163,7 @@ export default {
         .catch(err => {
           if (err.request && err.request.status === 401) {
             this.$store.commit('auth/setLoggedIn', false)
-            router.push('/')
+            this.$router.push('/')
           }
           console.log(err)
           this.days = staticDay(date)
@@ -174,6 +172,7 @@ export default {
     },
     date(date) {
       this.dateString = date.toISOString().substr(0, 10)
+      this.initialized = false
       this.api
         .getDay(date)
         .then(day => {
@@ -187,7 +186,7 @@ export default {
         .catch(err => {
           if (err.request && err.request.status === 401) {
             this.$store.commit('auth/setLoggedIn', false)
-            router.push('/')
+            this.$router.push('/')
           }
           console.log(err)
           this.days = staticDay(this.date)
@@ -197,12 +196,8 @@ export default {
   },
   mounted() {
     if (!this.auth.enabled || this.loggedIn) {
-      this.api = new Api(
-        this.apiBaseUrl,
-        this.blobBaseUrl,
-        this.functionKey,
-        this.auth.token
-      )
+      this.api = new Api(this.apiBaseUrl, this.functionKey, this.auth.token)
+      this.initialized = false
       this.api
         .getDay(this.date)
         .then(day => {
@@ -216,7 +211,7 @@ export default {
         .catch(err => {
           if (err.request && err.request.status === 401) {
             this.$store.commit('auth/setLoggedIn', false)
-            router.push('/')
+            this.$router.push('/')
           }
           console.log(err)
           this.days = staticDay(this.date)
@@ -226,25 +221,26 @@ export default {
       this.days = staticDay(this.date)
       this.initialized = true
     }
-
-    if (this.loggedIn) {
-      this.api.getUsername().then(username => {
-        this.auth.username = username
-      })
-    }
   },
   methods: {
     update() {
+      this.saving = true
       return this.api
         .addDay(this.days[0])
         .then(data => {
+          this.snackText = 'Day saved'
+          this.snackbar = true
           console.log('200')
+          this.saving = false
         })
         .catch(err => {
           if (err.request && err.request.status === 401) {
             this.$store.commit('auth/setLoggedIn', false)
-            router.push('/')
+            this.$router.push('/')
           }
+          this.snackText = 'Error saving day'
+          this.snackbar = true
+          this.saving = false
           console.log('Error')
         })
     }

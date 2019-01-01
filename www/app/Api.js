@@ -1,9 +1,8 @@
 import axios from 'axios'
 
 class Api {
-  constructor(baseUrl, blobBaseUrl, functionKey, authToken) {
+  constructor(baseUrl, functionKey, authToken) {
     this.baseUrl = baseUrl
-    this.blobBaseUrl = blobBaseUrl
     this.authToken = authToken
     this.functionKey = functionKey
   }
@@ -54,13 +53,10 @@ class Api {
     }
     return axios.get(`${this.baseUrl}/.auth/me`, config).then(response => {
       const userDetails = response.data[0]
-      const userFirstName = userDetails.user_claims.find(function(i) {
-        return (
-          i.typ ===
-          'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname'
-        )
+      const fullName = userDetails.user_claims.find(function(i) {
+        return i.typ === 'name'
       })
-      return userFirstName ? userFirstName.val : null
+      return fullName ? fullName.val : null
     })
   }
 }

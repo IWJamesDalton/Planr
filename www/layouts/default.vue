@@ -28,6 +28,7 @@
       :clipped-left="clipped"
       fixed
       app
+      color="cyan lighten-1"
     >
       <v-toolbar-side-icon @click="drawer = !drawer" />
       <v-btn
@@ -52,7 +53,7 @@
         v-if="loggedIn" 
         class="login text-xs-right" 
         @click="logout">
-        Log Out
+        Log Out ({{ userName }})
       </button>
     </v-toolbar>
     <v-content>
@@ -83,7 +84,7 @@ export default {
         {
           icon: 'bubble_chart',
           title: 'Daily Tasks',
-          to: '/inspire',
+          to: '/daily',
           requireAuth: true
         }
       ],
@@ -96,6 +97,9 @@ export default {
   computed: {
     loggedIn() {
       return this.$store.state.auth.loggedIn
+    },
+    userName() {
+      return this.$store.state.auth.username
     },
     menuItems() {
       if (this.loggedIn) {
@@ -111,6 +115,7 @@ export default {
     if (sessionStorage.getItem('authToken')) {
       this.$store.commit('auth/setToken', sessionStorage.getItem('authToken'))
       this.$store.commit('auth/setLoggedIn', true)
+      this.$store.commit('auth/loadUsername')
     }
   },
   methods: {
@@ -121,7 +126,7 @@ export default {
     },
     logout() {
       this.$store.commit('auth/setLoggedIn', false)
-      router.push('/')
+      this.$router.push('/')
     }
   }
 }
